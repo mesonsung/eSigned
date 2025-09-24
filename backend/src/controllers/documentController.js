@@ -406,3 +406,32 @@ exports.downloadSigned = async (req, res) => {
     res.status(500).json({ msg: 'Download failed' });
   }
 };
+
+exports.viewDocument = async (req, res) => {
+  try {
+    const { docId } = req.params;
+    const doc = await Document.findById(docId);
+    
+    if (!doc) {
+      return res.status(404).json({ msg: 'Document not found' });
+    }
+    
+    // Check if user has access to this document
+    if (!doc.signers.includes(req.user.id)) {
+      return res.status(403).json({ msg: 'Access denied' });
+    }
+    
+    // Check if original file exists
+    try {
+      await fs.access(doc.originalPath);
+      res.sendFile(path.resolve(doc.originalPath));
+    } catch (fileError) {
+      console.error('File not found:', doc.originalPath, fileError.message);
+      res.status(404).json({ msg: 'Original file not found on server' });
+    }
+    
+  } catch (error) {
+    console.error('View document error:', error);
+    res.status(500).json({ msg: 'Failed to view document' });
+  }
+};

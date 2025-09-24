@@ -82,7 +82,7 @@ The application will be available at `http://localhost:8080`
 6. Download the signed document
 
 ### Document Management
-- View all your documents in "My Documents"
+- View all your documents in "Signed Documents"
 - Download signed documents
 - Track document status (pending/signed)
 

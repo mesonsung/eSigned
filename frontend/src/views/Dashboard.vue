@@ -49,9 +49,9 @@
           style="cursor: pointer;"
         >
           <v-icon size="48" color="secondary" class="mb-4">mdi-file-document-multiple-outline</v-icon>
-          <h3 class="text-title-medium font-weight-medium mb-2">My Documents</h3>
+          <h3 class="text-title-medium font-weight-medium mb-2">Signed Documents</h3>
           <p class="text-body-medium text-medium-emphasis">
-            View and manage your documents
+            View and manage your signed documents
           </p>
         </v-card>
       </v-col>
@@ -91,11 +91,12 @@
             
             <div v-else-if="documents.length === 0" class="text-center py-8">
               <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-file-document-outline</v-icon>
-              <h3 class="text-title-medium text-medium-emphasis mb-2">No documents yet</h3>
+              <h3 class="text-title-medium text-medium-emphasis mb-2">No signed documents yet</h3>
               <p class="text-body-medium text-medium-emphasis mb-4">
                 Upload your first document to get started
               </p>
               <v-btn
+                v-if="authStore.isAdmin"
                 color="primary"
                 variant="elevated"
                 rounded="xl"
@@ -104,6 +105,12 @@
                 <v-icon class="mr-2">mdi-plus</v-icon>
                 Upload Document
               </v-btn>
+              <div v-else class="text-center">
+                <v-chip color="warning" variant="tonal" size="large" rounded="xl">
+                  <v-icon class="mr-2">mdi-shield-account</v-icon>
+                  Admin Access Required
+                </v-chip>
+              </div>
             </div>
             
             <v-list v-else class="pa-0">
@@ -146,7 +153,7 @@
                 rounded="xl"
                 @click="$router.push('/documents')"
               >
-                View All Documents
+                View All Signed Documents
                 <v-icon class="ml-2">mdi-arrow-right</v-icon>
               </v-btn>
             </div>

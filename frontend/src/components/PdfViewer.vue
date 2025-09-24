@@ -106,7 +106,7 @@ export default {
       pdf: null,
       currentPage: 1,
       totalPages: 0,
-      zoomLevel: 1,
+      zoomLevel: 2,
       loading: false,
       error: null
     }

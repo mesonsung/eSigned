@@ -1,51 +1,96 @@
 <template>
   <v-container fluid class="pa-4">
-    <!-- Upload Section -->
-    <v-row v-if="!uploadedFile" class="mb-6">
+    <!-- Document Selection Section -->
+    <v-row v-if="!selectedDocument" class="mb-6">
       <v-col cols="12">
         <v-card class="elevation-4 glass-card" rounded="xl">
           <v-card-title class="text-headline-small font-weight-medium pa-6">
             <v-icon class="mr-2">mdi-file-sign</v-icon>
-            Upload Document
+            Select Document to Sign
           </v-card-title>
           
           <v-card-text class="pa-6">
-            <div class="text-center py-8">
+            <!-- Loading State -->
+            <div v-if="documentsStore.loading" class="text-center py-8">
+              <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+              <p class="text-body-large text-medium-emphasis mt-4">Loading signed documents...</p>
+            </div>
+
+            <!-- Error State -->
+            <v-alert
+              v-else-if="documentsStore.error"
+              type="error"
+              variant="tonal"
+              class="mb-4"
+              closable
+              @click:close="documentsStore.clearError"
+            >
+              {{ documentsStore.error }}
+            </v-alert>
+
+            <!-- Empty State -->
+            <div v-else-if="documentsStore.pendingDocuments.length === 0" class="text-center py-8">
               <v-icon size="64" color="primary" class="mb-4">mdi-file-document-outline</v-icon>
-              <h3 class="text-title-large font-weight-medium mb-2">Document Signing</h3>
+              <h3 class="text-title-large font-weight-medium mb-2">No Documents to Sign</h3>
               <p class="text-body-large text-medium-emphasis mb-6">
-                Upload and sign your PDF documents
+                You don't have any uploaded documents that need signing
               </p>
-              
-              <!-- File Upload Area -->
-              <div class="upload-area" @click="triggerFileUpload" @dragover.prevent @drop.prevent="handleDrop">
-                <input
-                  ref="fileInput"
-                  type="file"
-                  accept=".pdf"
-                  @change="handleFileSelect"
-                  style="display: none"
-                />
-                
-                <div class="upload-content">
-                  <v-icon size="48" color="primary" class="mb-4">mdi-cloud-upload</v-icon>
-                  <h4 class="text-title-medium mb-2">Drop your PDF here</h4>
-                  <p class="text-body-2 text-medium-emphasis mb-4">or click to browse</p>
-                  <v-btn
-                    color="primary"
-                    variant="elevated"
-                    size="large"
-                    rounded="xl"
-                  >
-                    <v-icon class="mr-2">mdi-upload</v-icon>
-                    Choose PDF File
-                  </v-btn>
-                </div>
+              <v-btn
+                v-if="authStore.isAdmin"
+                color="primary"
+                variant="elevated"
+                size="large"
+                rounded="xl"
+                @click="$router.push('/documents')"
+              >
+                <v-icon class="mr-2">mdi-upload</v-icon>
+                Upload Documents
+              </v-btn>
+              <div v-else class="text-center">
+                <v-chip color="warning" variant="tonal" size="large" rounded="xl">
+                  <v-icon class="mr-2">mdi-shield-account</v-icon>
+                  Admin Access Required
+                </v-chip>
               </div>
-              
-              <p class="text-caption text-medium-emphasis mt-4">
-                Supported format: PDF only • Max size: 10MB
+            </div>
+
+            <!-- Documents List -->
+            <div v-else>
+              <h3 class="text-title-large font-weight-medium mb-4">Select a Document to Sign</h3>
+              <p class="text-body-large text-medium-emphasis mb-6">
+                Choose from your uploaded PDF documents
               </p>
+              
+              <v-list class="pa-0">
+                <v-list-item
+                  v-for="doc in documentsStore.pendingDocuments"
+                  :key="doc._id"
+                  class="mb-3 rounded-xl border"
+                  @click="selectDocument(doc)"
+                  style="cursor: pointer;"
+                >
+                  <template v-slot:prepend>
+                    <v-avatar color="primary" size="48" rounded="lg">
+                      <v-icon color="white" size="24">mdi-file-document-outline</v-icon>
+                    </v-avatar>
+                  </template>
+                  
+                  <v-list-item-title class="text-title-medium font-weight-medium">
+                    {{ doc.filename }}
+                  </v-list-item-title>
+                  
+                  <v-list-item-subtitle class="text-body-medium text-medium-emphasis">
+                    Uploaded: {{ formatDate(doc.createdAt) }}
+                  </v-list-item-subtitle>
+                  
+                  <template v-slot:append>
+                    <v-chip color="warning" variant="tonal" size="small" rounded="xl">
+                      Pending
+                    </v-chip>
+                    <v-icon color="primary" class="ml-2">mdi-chevron-right</v-icon>
+                  </template>
+                </v-list-item>
+              </v-list>
             </div>
           </v-card-text>
         </v-card>
@@ -53,21 +98,21 @@
     </v-row>
 
     <!-- Document Preview and Signing Section -->
-    <v-row v-if="uploadedFile" class="mb-6">
+    <v-row v-if="selectedDocument" class="mb-6">
       <v-col cols="12">
         <v-card class="elevation-4 glass-card" rounded="xl">
           <v-card-title class="d-flex align-center justify-space-between pa-6">
             <div class="d-flex align-center">
               <v-icon class="mr-2">mdi-file-document</v-icon>
-              <span class="text-headline-small font-weight-medium">{{ uploadedFile.name }}</span>
+              <span class="text-headline-small font-weight-medium">{{ selectedDocument.filename }}</span>
             </div>
             <v-btn
               color="error"
               variant="outlined"
-              @click="resetUpload"
+              @click="resetSelection"
             >
               <v-icon left>mdi-close</v-icon>
-              Remove Document
+              Select Different Document
             </v-btn>
           </v-card-title>
           
@@ -76,7 +121,7 @@
           <v-card-text class="pa-6">
             <!-- PDF Viewer -->
             <div class="mb-6">
-              <PdfViewer :pdfFile="uploadedFile" />
+              <PdfViewer :pdfFile="pdfFile" />
             </div>
             
             <!-- Signature Section -->
@@ -144,70 +189,59 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useDocumentsStore } from '@/stores/documents'
+import { useAuthStore } from '@/stores/auth'
 import PdfViewer from '@/components/PdfViewer.vue'
 import SignaturePad from '@/components/SignaturePad.vue'
+import axios from '@/config/axios'
 
 const documentsStore = useDocumentsStore()
+const authStore = useAuthStore()
 
 // Reactive data
-const uploadedFile = ref(null)
+const selectedDocument = ref(null)
 const signatureData = ref(null)
 const signing = ref(false)
 const signedDocument = ref(null)
-const fileInput = ref(null)
 
 // Computed properties
-const canSign = computed(() => uploadedFile.value && signatureData.value)
+const canSign = computed(() => selectedDocument.value && signatureData.value)
+const pdfFile = ref(null)
 
-// File upload methods
-const triggerFileUpload = () => {
-  fileInput.value?.click()
-}
+// Load documents on component mount
+onMounted(async () => {
+  await documentsStore.fetchDocuments()
+})
 
-const handleFileSelect = (event) => {
-  const file = event.target.files[0]
-  if (file) {
-    validateAndSetFile(file)
-  }
-}
-
-const handleDrop = (event) => {
-  const files = event.dataTransfer.files
-  if (files.length > 0) {
-    validateAndSetFile(files[0])
-  }
-}
-
-const validateAndSetFile = (file) => {
-  // Validate file type
-  if (file.type !== 'application/pdf') {
-    window.showSnackbar('Please select a PDF file only.', 'error')
-    return
-  }
-  
-  // Validate file size (10MB limit)
-  const maxSize = 10 * 1024 * 1024 // 10MB in bytes
-  if (file.size > maxSize) {
-    window.showSnackbar('File size must be less than 10MB.', 'error')
-    return
-  }
-  
-  uploadedFile.value = file
+// Document selection methods
+const selectDocument = async (document) => {
+  selectedDocument.value = document
   signatureData.value = null
   signedDocument.value = null
   
-  window.showSnackbar(`File "${file.name}" uploaded successfully!`, 'success')
+  try {
+    // Fetch the PDF data using axios
+    const response = await axios.get(`/api/documents/view/${document._id}`, {
+      responseType: 'blob'
+    })
+    
+    // Create a File object for the PDF viewer
+    pdfFile.value = new File([response.data], document.filename, { type: 'application/pdf' })
+    
+    window.showSnackbar(`Selected "${document.filename}" for signing`, 'success')
+  } catch (error) {
+    console.error('Error loading PDF:', error)
+    window.showSnackbar('Failed to load PDF document', 'error')
+    selectedDocument.value = null
+  }
 }
 
-const resetUpload = () => {
-  uploadedFile.value = null
+const resetSelection = () => {
+  selectedDocument.value = null
   signatureData.value = null
   signedDocument.value = null
-  if (fileInput.value) {
-    fileInput.value.value = ''
-  }
+  pdfFile.value = null
 }
 
 // Signature handling methods
@@ -229,40 +263,28 @@ const handleSignatureError = (message) => {
 
 // Document signing method
 const signDocument = async () => {
-  if (!uploadedFile.value || !signatureData.value) {
-    window.showSnackbar('Please upload a document and create a signature first.', 'error')
+  if (!selectedDocument.value || !signatureData.value) {
+    window.showSnackbar('Please select a document and create a signature first.', 'error')
     return
   }
   
   signing.value = true
   
   try {
-    // First upload the document
-    const uploadResult = await documentsStore.uploadDocument(uploadedFile.value)
+    // Sign the selected document
+    const signResult = await documentsStore.signDocument(
+      selectedDocument.value._id,
+      signatureData.value
+    )
     
-    if (uploadResult.success) {
-      // Then sign the document
-      const signResult = await documentsStore.signDocument(
-        uploadResult.document._id,
-        signatureData.value
-      )
-      
-      if (signResult.success) {
-        signedDocument.value = {
-          ...uploadResult.document,
-          signedPath: signResult.signedPath
-        }
-        window.showSnackbar('Document signed successfully!', 'success')
-      } else {
-        window.showSnackbar(signResult.error || 'Failed to sign document.', 'error')
+    if (signResult.success) {
+      signedDocument.value = {
+        ...selectedDocument.value,
+        signedPath: signResult.signedPath
       }
+      window.showSnackbar('Document signed successfully!', 'success')
     } else {
-      // Handle duplicate file error with warning
-      if (uploadResult.errorType === 'duplicate_file') {
-        window.showSnackbar(`⚠️ ${uploadResult.error}`, 'warning')
-      } else {
-        window.showSnackbar(uploadResult.error || 'Failed to upload document.', 'error')
-      }
+      window.showSnackbar(signResult.error || 'Failed to sign document.', 'error')
     }
   } catch (error) {
     console.error('Error signing document:', error)
@@ -283,6 +305,18 @@ const downloadSignedDocument = async () => {
     console.error('Error downloading document:', error)
     window.showSnackbar('Failed to download document.', 'error')
   }
+}
+
+// Utility function to format dates
+const formatDate = (dateString) => {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 </script>
 

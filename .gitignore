@@ -180,3 +180,7 @@ backend/test-*.js
 backend/check-*.js
 backend/fix-*.js
 backend/cleanup-*.js
+
+storage/
+
+test-*.js

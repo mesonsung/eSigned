@@ -24,7 +24,7 @@ export const useDocumentsStore = defineStore('documents', {
         const response = await axios.get('/api/documents')
         this.documents = response.data
       } catch (error) {
-        this.error = error.response?.data?.message || 'Failed to fetch documents'
+        this.error = error.response?.data?.message || 'Failed to fetch signed documents'
       } finally {
         this.loading = false
       }
@@ -48,6 +48,16 @@ export const useDocumentsStore = defineStore('documents', {
         return { success: true, document: response.data }
       } catch (error) {
         const errorData = error.response?.data
+        
+        // Handle admin required error specifically
+        if (error.response?.status === 403 && errorData?.errorType === 'admin_required') {
+          this.error = 'Only ADMIN users can upload PDF files. Please contact your administrator.'
+          return { 
+            success: false, 
+            error: this.error,
+            errorType: 'admin_required'
+          }
+        }
         
         // Handle duplicate file error specifically
         if (error.response?.status === 409 && errorData?.errorType === 'duplicate_file') {

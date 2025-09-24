@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const documentController = require('../controllers/documentController');
 const authMiddleware = require('../middleware/authMiddleware');
+const adminMiddleware = require('../middleware/adminMiddleware');
 
 // Multer error handling middleware
 const handleMulterError = (error, req, res, next) => {
@@ -25,10 +26,11 @@ const debugMiddleware = (req, res, next) => {
   next();
 };
 
-// Upload route with proper middleware order
+// Upload route with proper middleware order - ADMIN ONLY
 router.post('/upload', 
   debugMiddleware,
   authMiddleware, 
+  adminMiddleware,  // Only ADMIN users can upload PDFs
   documentController.uploadMiddleware, 
   handleMulterError,
   documentController.uploadDocument
@@ -37,5 +39,6 @@ router.post('/upload',
 router.get('/', authMiddleware, documentController.getDocuments);
 router.post('/sign', authMiddleware, documentController.signDocument);
 router.get('/download/:docId', authMiddleware, documentController.downloadSigned);
+router.get('/view/:docId', authMiddleware, documentController.viewDocument);
 
 module.exports = router;

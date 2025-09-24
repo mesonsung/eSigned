@@ -5,11 +5,22 @@
         <v-card class="elevation-2" rounded="xl">
           <v-card-title class="text-headline-small font-weight-medium pa-6">
             <v-icon class="mr-2">mdi-file-document-multiple-outline</v-icon>
-            My Documents
+            Signed Documents
             <v-spacer></v-spacer>
             <v-btn
+              v-if="authStore.isAdmin"
               color="primary"
               variant="elevated"
+              rounded="xl"
+              @click="triggerFileUpload"
+              class="mr-2"
+            >
+              <v-icon class="mr-2">mdi-upload</v-icon>
+              Upload PDF
+            </v-btn>
+            <v-btn
+              color="secondary"
+              variant="outlined"
               rounded="xl"
               @click="refreshDocuments"
               :loading="documentsStore.loading"
@@ -19,11 +30,20 @@
             </v-btn>
           </v-card-title>
           
+          <!-- Hidden file input -->
+          <input
+            ref="fileInput"
+            type="file"
+            accept=".pdf"
+            @change="handleFileSelect"
+            style="display: none"
+          />
+          
           <v-card-text class="pa-6">
             <!-- Loading State -->
             <div v-if="documentsStore.loading" class="text-center py-8">
               <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-              <p class="text-body-large text-medium-emphasis mt-4">Loading documents...</p>
+              <p class="text-body-large text-medium-emphasis mt-4">Loading signed documents...</p>
             </div>
 
             <!-- Error State -->
@@ -41,15 +61,58 @@
             <!-- Empty State -->
             <div v-else-if="documentsStore.documents.length === 0" class="text-center py-8">
               <v-icon size="64" color="primary" class="mb-4">mdi-file-document-outline</v-icon>
-              <h3 class="text-title-large font-weight-medium mb-2">No Documents Yet</h3>
-              <p class="text-body-large text-medium-emphasis mb-4">
-                Upload and sign your first document to get started
+              <h3 class="text-title-large font-weight-medium mb-2">No Signed Documents Yet</h3>
+              <p class="text-body-large text-medium-emphasis mb-6">
+                Upload your first PDF document to get started
+              </p>
+              
+              <!-- File Upload Area - Admin Only -->
+              <div v-if="authStore.isAdmin" class="upload-area" @click="triggerFileUpload" @dragover.prevent @drop.prevent="handleDrop">
+                <input
+                  ref="fileInput"
+                  type="file"
+                  accept=".pdf"
+                  @change="handleFileSelect"
+                  style="display: none"
+                />
+                
+                <div class="upload-content">
+                  <v-icon size="48" color="primary" class="mb-4">mdi-cloud-upload</v-icon>
+                  <h4 class="text-title-medium mb-2">Drop your PDF here</h4>
+                  <p class="text-body-2 text-medium-emphasis mb-4">or click to browse</p>
+                  <v-btn
+                    color="primary"
+                    variant="elevated"
+                    size="large"
+                    rounded="xl"
+                  >
+                    <v-icon class="mr-2">mdi-upload</v-icon>
+                    Choose PDF File
+                  </v-btn>
+                </div>
+              </div>
+              
+              <!-- Non-Admin Message -->
+              <div v-else class="text-center py-8">
+                <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-shield-account</v-icon>
+                <h3 class="text-title-medium text-medium-emphasis mb-2">Admin Access Required</h3>
+                <p class="text-body-medium text-medium-emphasis mb-4">
+                  Only ADMIN users can upload PDF documents
+                </p>
+                <v-chip color="warning" variant="tonal" size="large" rounded="xl">
+                  <v-icon class="mr-2">mdi-information</v-icon>
+                  Contact Administrator
+                </v-chip>
+              </div>
+              
+              <p class="text-caption text-medium-emphasis mt-4">
+                Supported format: PDF only • Max size: 10MB
               </p>
             </div>
 
             <!-- Documents List -->
             <div v-else>
-              <h3 class="text-title-large font-weight-medium mb-4">Your Documents</h3>
+              <h3 class="text-title-large font-weight-medium mb-4">Your Signed Documents</h3>
               
               <!-- Pending Documents -->
               <div v-if="documentsStore.pendingDocuments.length > 0" class="mb-6">
@@ -237,10 +300,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useDocumentsStore } from '@/stores/documents'
+import { useAuthStore } from '@/stores/auth'
 
 const documentsStore = useDocumentsStore()
+const authStore = useAuthStore()
 const downloadingDocId = ref(null)
 const previewingDocId = ref(null)
+const fileInput = ref(null)
 
 // Preview modal state
 const previewModal = ref({
@@ -384,6 +450,57 @@ const openPdfInNewTab = () => {
   }
 }
 
+// File upload methods
+const triggerFileUpload = () => {
+  fileInput.value?.click()
+}
+
+const handleFileSelect = async (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    await uploadFile(file)
+  }
+}
+
+const handleDrop = async (event) => {
+  const files = event.dataTransfer.files
+  if (files.length > 0) {
+    await uploadFile(files[0])
+  }
+}
+
+const uploadFile = async (file) => {
+  // Validate file type
+  if (file.type !== 'application/pdf') {
+    window.showSnackbar('Please select a PDF file only.', 'error')
+    return
+  }
+  
+  // Validate file size (10MB limit)
+  const maxSize = 10 * 1024 * 1024 // 10MB in bytes
+  if (file.size > maxSize) {
+    window.showSnackbar('File size must be less than 10MB.', 'error')
+    return
+  }
+  
+  const result = await documentsStore.uploadDocument(file)
+  
+  if (result.success) {
+    window.showSnackbar(`File "${file.name}" uploaded successfully!`, 'success')
+    // Clear the file input
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
+  } else {
+    // Handle duplicate file error with warning
+    if (result.errorType === 'duplicate_file') {
+      window.showSnackbar(`⚠️ ${result.error}`, 'warning')
+    } else {
+      window.showSnackbar(result.error || 'Failed to upload document.', 'error')
+    }
+  }
+}
+
 // Load documents when component mounts
 onMounted(() => {
   refreshDocuments()
@@ -398,6 +515,56 @@ onMounted(() => {
 .preview-iframe {
   border: none;
   background: white;
+}
+
+.upload-area {
+  border: 2px dashed rgba(var(--v-theme-primary), 0.3);
+  border-radius: 16px;
+  padding: 48px 24px;
+  background: rgba(var(--v-theme-primary), 0.02);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.upload-area:hover {
+  border-color: rgba(var(--v-theme-primary), 0.6);
+  background: rgba(var(--v-theme-primary), 0.05);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(var(--v-theme-primary), 0.15);
+}
+
+.upload-area:active {
+  transform: translateY(0);
+}
+
+.upload-content {
+  text-align: center;
+  pointer-events: none;
+}
+
+.upload-area::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(var(--v-theme-primary), 0.1) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.upload-area:hover::before {
+  transform: translateX(100%);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .upload-area {
+    padding: 32px 16px;
+  }
 }
 
 /* Responsive design for preview modal */

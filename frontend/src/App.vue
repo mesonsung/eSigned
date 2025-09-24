@@ -132,7 +132,7 @@ const snackbar = ref({
 const menuItems = ref([
   { title: 'Dashboard', icon: 'mdi-view-dashboard-outline', to: '/dashboard' },
   { title: 'Sign Document', icon: 'mdi-file-sign', to: '/sign' },
-  { title: 'My Documents', icon: 'mdi-file-document-multiple-outline', to: '/documents' }
+  { title: 'Signed Documents', icon: 'mdi-file-document-multiple-outline', to: '/documents' }
 ])
 
 // Computed properties
