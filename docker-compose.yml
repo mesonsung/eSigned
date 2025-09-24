@@ -1,0 +1,39 @@
+version: '3'
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./storage:/app/storage
+    environment:
+      MONGO_URI: mongodb://mongo:27017/docdb
+      JWT_SECRET: esigned_app_jwt_secret
+      EMAIL_USER: meson.sung@gmail.com
+      EMAIL_PASS: syswdyiswmvxpfqj
+    depends_on:
+      - mongo
+
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      VUE_APP_API_URL: http://localhost:5000
+    ports:
+      - "8443:443"  # HTTPS port
+      - "8080:80"   # HTTP redirect port
+    #volumes:
+    #  - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+
+  mongo:
+    image: mongo:4.4
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:

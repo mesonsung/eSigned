@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <link rel="icon" href="<%= BASE_URL %>favicon.ico" type="image/x-icon">
+    <title>eSigned - Digital Document Signing</title>
+    <meta name="description" content="Sign PDF documents digitally with eSigned. Upload, sign, and download documents securely.">
+    
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Material Design Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
+    
+    <!-- PDF.js - Robust loading with multiple fallbacks -->
+    <script>
+      // Enhanced PDF.js loading with multiple fallbacks
+      window.loadPdfJs = function() {
+        return new Promise((resolve, reject) => {
+          // Check if already loaded
+          if (window.pdfjsLib) {
+            console.log('PDF.js already loaded')
+            resolve(window.pdfjsLib)
+            return
+          }
+          
+          // Try multiple CDN sources
+          const cdnSources = [
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.10.111/pdf.min.js'
+          ]
+          
+          let currentSource = 0
+          
+          const tryLoadPdfJs = () => {
+            if (currentSource >= cdnSources.length) {
+              reject(new Error('All PDF.js CDN sources failed to load'))
+              return
+            }
+            
+            const script = document.createElement('script')
+            script.src = cdnSources[currentSource]
+            script.onload = function() {
+              console.log(`PDF.js loaded from: ${cdnSources[currentSource]}`)
+            if (window.pdfjsLib) {
+              // Configure worker with multiple fallback options
+              try {
+                // Try multiple worker sources
+                const workerSources = [
+                  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.10.111/pdf.worker.min.js'
+                ]
+                
+                // Set the first worker source
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = workerSources[0]
+                
+                // Configure additional options
+                window.pdfjsLib.GlobalWorkerOptions.workerPort = null
+                window.pdfjsLib.GlobalWorkerOptions.disableWorker = false
+                
+                console.log('PDF.js worker configured with fallback sources')
+              } catch (error) {
+                console.warn('PDF.js worker configuration failed:', error)
+                // Try to disable worker as fallback
+                try {
+                  window.pdfjsLib.GlobalWorkerOptions.disableWorker = true
+                  console.log('PDF.js worker disabled as fallback')
+                } catch (disableError) {
+                  console.warn('Failed to disable PDF.js worker:', disableError)
+                }
+              }
+              resolve(window.pdfjsLib)
+              } else {
+                console.warn(`PDF.js script loaded but pdfjsLib not found: ${cdnSources[currentSource]}`)
+                currentSource++
+                tryLoadPdfJs()
+              }
+            }
+            script.onerror = function() {
+              console.warn(`PDF.js failed to load from: ${cdnSources[currentSource]}`)
+              currentSource++
+              tryLoadPdfJs()
+            }
+            document.head.appendChild(script)
+          }
+          
+          tryLoadPdfJs()
+        })
+      }
+      
+      // Load PDF.js immediately
+      window.loadPdfJs().catch(error => {
+        console.error('PDF.js loading failed:', error)
+        // Set a flag for the Vue component to handle
+        window.pdfJsLoadError = error
+      })
+    </script>
+    
+    <style>
+      /* Loading screen styles */
+      .loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        color: white;
+      }
+      
+      .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top: 3px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .loading-text {
+        font-family: 'Roboto', sans-serif;
+        font-size: 18px;
+        font-weight: 500;
+      }
+      
+      /* Hide loading screen when app loads */
+      .app-loaded .loading-screen {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>
+      <strong>We're sorry but eSigned doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
+    </noscript>
+    
+    <!-- Loading Screen -->
+    <div class="loading-screen">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading eSigned...</div>
+    </div>
+    
+    <div id="app"></div>
+    
+    <script>
+      // Hide loading screen when Vue app is mounted
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          document.body.classList.add('app-loaded');
+        }, 1000);
+      });
+    </script>
+  </body>
+</html>
